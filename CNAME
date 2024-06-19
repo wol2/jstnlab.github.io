@@ -1,1 +1,14 @@
 www.realtime-graph.com
+CNAME 레코드 설정 (www 서브도메인을 위한 설정)
+Type: CNAME
+Name: www
+Value: jstnlab.github.io
+
+A 레코드 설정 (루트 도메인을 위한 설정)
+Type: A
+Name: @
+Value: 
+185.199.108.153
+185.199.109.153
+185.199.110.153
+185.199.111.153
