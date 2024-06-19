@@ -1,10 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ include file="/resources/common/taglibs.jsp"%>
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <%@ include file="/resources/common/meta.jsp"%>
     <title>Real-time Temperature Monitoring Chart</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
