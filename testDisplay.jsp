@@ -1,0 +1,298 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/resources/common/taglibs.jsp"%>
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <%@ include file="/resources/common/meta.jsp"%>
+    <title>Real-time Temperature Monitoring Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        body {
+            background-color: #000; /* 전체 배경 색상 */
+            color: #fff; /* 텍스트 색상 */
+            margin: 0; /* 기본 margin 제거 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh; /* 최소 화면 높이 */
+        }
+        .title {
+            font-size: 24px;
+            margin: 20px;
+        }
+        .charts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 90vw;
+            height: 80vh;
+        }
+        .chart-container {
+            position: relative;
+            flex: 1 1 calc(50% - 20px); /* 2개씩 나란히 배치, 간격 유지 */
+            min-width: 300px;
+            height: 45%;
+        }
+        .alert {
+            font-size: 20px;
+            display: none;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border: 2px solid;
+            border-radius: 5px;
+            z-index: 9999; /* Ensure the alert is on top of everything */
+            box-shadow: 0 0 10px; /* 그림자 효과 */
+        }
+        .upper-limit {
+            background-color: rgba(255, 69, 0, 0.8); /* 반투명 빨간색 배경 */
+            border-color: rgba(255, 69, 0, 1);
+            color: white;
+        }
+        .lower-limit {
+            background-color: rgba(30, 144, 255, 0.8); /* 반투명 파란색 배경 */
+            border-color: rgba(30, 144, 255, 1);
+            color: white;
+        }
+        @media (max-width: 1024px) {
+            .charts {
+                flex-direction: column;
+            }
+            .chart-container {
+                flex: 1 1 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="title">Real-time Temperature Monitoring Chart</div>
+<div class="charts">
+    <div class="chart-container">
+        <div id="alert1" class="alert"></div>
+        <canvas id="chart1"></canvas>
+    </div>
+    <div class="chart-container">
+        <div id="alert2" class="alert"></div>
+        <canvas id="chart2"></canvas>
+    </div>
+    <div class="chart-container">
+        <div id="alert3" class="alert"></div>
+        <canvas id="chart3"></canvas>
+    </div>
+    <div class="chart-container">
+        <div id="alert4" class="alert"></div>
+        <canvas id="chart4"></canvas>
+    </div>
+</div>
+
+<script>
+    function createChart(ctx, label, borderColor, xAxisTitle, yAxisTitle, yAxisMin, yAxisMax) {
+        return new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    createDataset(label, borderColor),
+                    createDataset('Upper Limit', 'rgba(255, 69, 0, 1)', [10, 5]),
+                    createDataset('Lower Limit', 'rgba(30, 144, 255, 1)', [10, 5])
+                ]
+            },
+            options: createChartOptions(xAxisTitle, yAxisTitle, yAxisMin, yAxisMax)
+        });
+    }
+
+    function createDataset(label, borderColor, borderDash = []) {
+        return {
+            label: label,
+            data: [],
+            borderColor: borderColor,
+            borderWidth: 2,
+            fill: false,
+            pointRadius: 0,
+            tension: 0.4, // 부드러운 곡선
+            borderDash: borderDash
+        };
+    }
+
+    function createChartOptions(xAxisTitle, yAxisTitle, yAxisMin, yAxisMax) {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#fff' // 범례 텍스트 색상
+                    }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutSine'
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'second',
+                        tooltipFormat: 'PPpp'
+                    },
+                    title: {
+                        display: true,
+                        text: xAxisTitle,
+                        color: '#fff',
+                        font: {
+                            size: 18
+                        }
+                    },
+                    ticks: {
+                        color: '#fff', // X축 텍스트 색상
+                        font: {
+                            size: 14
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.3)' // X축 그리드 색상
+                    }
+                },
+                y: {
+                    min: yAxisMin,
+                    max: yAxisMax,
+                    title: {
+                        display: true,
+                        text: yAxisTitle,
+                        color: '#fff',
+                        font: {
+                            size: 18
+                        }
+                    },
+                    ticks: {
+                        color: '#fff', // Y축 텍스트 색상
+                        font: {
+                            size: 14
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.3)' // Y축 그리드 색상
+                    }
+                }
+            }
+        };
+    }
+
+    function generateMockData(chartId, yAxisMin, yAxisMax, upperLimit, lowerLimit) {
+        const currentTime = new Date().getTime();
+        let temperatureValue;
+        let dataCounter = window[chartId + 'DataCounter'] || 0;
+
+        // 초기 10초 동안은 정상 범위 내의 데이터만 생성
+        if (dataCounter < 10) {
+            temperatureValue = lowerLimit + Math.random() * (upperLimit - lowerLimit);
+        } else {
+            // 무작위로 상한선 초과 또는 하한선 미달 데이터를 생성
+            const exceed = Math.random() > 0.95 ? (Math.random() > 0.5 ? 1 : -1) : 0;
+            if (exceed === 1) {
+                temperatureValue = upperLimit + Math.random() * (yAxisMax - upperLimit); // 상한선 초과
+            } else if (exceed === -1) {
+                temperatureValue = lowerLimit - Math.random() * (lowerLimit - yAxisMin); // 하한선 미달
+            } else {
+                temperatureValue = Math.random() * yAxisMax; // 일반 데이터
+            }
+        }
+        window[chartId + 'DataCounter'] = dataCounter + 1;
+
+        return {
+            temperature: { value: temperatureValue, timestamp: currentTime }
+        };
+    }
+
+    function showAlert(message, alertClass, alertId) {
+        const alertElement = document.getElementById(alertId);
+        alertElement.innerText = message;
+        alertElement.className = 'alert ' + alertClass;
+        alertElement.style.display = 'block';
+        setTimeout(() => {
+            alertElement.style.display = 'none';
+        }, 3000);
+    }
+
+    function fetchData(chartId, endpoint, processData) {
+        fetch(endpoint)
+            .then(response => response.json())
+            .then(data => processData(chartId, data))
+            .catch(error => console.error('Error fetching data:', error));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setupChart('chart1', 'alert1', 'Temperature 1', 'rgba(255, 99, 132, 1)', 'Time 1', 'Temperature (°C)', 0, 1000, 800, 200);
+        setupChart('chart2', 'alert2', 'Temperature 2', 'rgba(54, 162, 235, 1)', 'Time 2', 'Temperature (°F)', -20, 212, 180, 32);
+        setupChart('chart3', 'alert3', 'Temperature 3', 'rgba(255, 206, 86, 1)', 'Time 3', 'Temperature (K)', 273, 1273, 1073, 473);
+        setupChart('chart4', 'alert4', 'Temperature 4', 'rgba(75, 192, 192, 1)', 'Time 4', 'Temperature (°R)', 491, 2120, 1800, 660);
+    });
+
+    function setupChart(chartId, alertId, label, color, xAxisTitle, yAxisTitle, yAxisMin, yAxisMax, upperLimit, lowerLimit) {
+        const ctx = document.getElementById(chartId).getContext('2d');
+        const chart = createChart(ctx, label, color, xAxisTitle, yAxisTitle, yAxisMin, yAxisMax);
+        let lastAlertTime = 0;
+        window[chartId + 'DataCounter'] = 0;
+
+        setInterval(() => {
+            const mockData = generateMockData(chartId, yAxisMin, yAxisMax, upperLimit, lowerLimit);
+            const time = new Date(mockData.temperature.timestamp);
+            const now = Date.now();
+
+            chart.data.labels.push(time);
+            chart.data.datasets[0].data.push({ x: time, y: mockData.temperature.value });
+            chart.data.datasets[1].data.push({ x: time, y: upperLimit });
+            chart.data.datasets[2].data.push({ x: time, y: lowerLimit });
+
+            // 초기 10초 동안은 알람 표시 안함
+            if (window[chartId + 'DataCounter'] > 10) {
+                // 특정 값에 도달했을 때 시각적 알람 표시
+                if (mockData.temperature.value > upperLimit && now - lastAlertTime > 5000) {
+                    showAlert('Upper limit exceeded!', 'upper-limit', alertId);
+                    lastAlertTime = now;
+                } else if (mockData.temperature.value < lowerLimit && now - lastAlertTime > 5000) {
+                    showAlert('Lower limit exceeded!', 'lower-limit', alertId);
+                    lastAlertTime = now;
+                }
+            }
+
+            chart.update();
+
+            /* 비동기 통신으로 실제 데이터를 받아오는 로직 (주석처리)
+            fetchData(chartId, endpoint, (chartId, data) => {
+                const time = new Date(data.timestamp);
+                const now = Date.now();
+
+                chart.data.labels.push(time);
+                chart.data.datasets[0].data.push({ x: time, y: data.value });
+                chart.data.datasets[1].data.push({ x: time, y: upperLimit });
+                chart.data.datasets[2].data.push({ x: time, y: lowerLimit });
+
+                // 초기 10초 동안은 알람 표시 안함
+                if (window[chartId + 'DataCounter'] > 10) {
+                    // 특정 값에 도달했을 때 시각적 알람 표시
+                    if (data.value > upperLimit && now - lastAlertTime > 5000) {
+                        showAlert('Upper limit exceeded!', 'upper-limit', alertId);
+                        lastAlertTime = now;
+                    } else if (data.value < lowerLimit && now - lastAlertTime > 5000) {
+                        showAlert('Lower limit exceeded!', 'lower-limit', alertId);
+                        lastAlertTime = now;
+                    }
+                }
+
+                chart.update();
+            });
+            */
+        }, 1000);
+    }
+</script>
+</body>
+</html>
