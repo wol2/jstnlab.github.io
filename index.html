@@ -181,7 +181,7 @@
         let dataCounter = window[chartId + 'DataCounter'] || 0;
 
         // 초기 10초 동안은 정상 범위 내의 데이터만 생성
-        if (dataCounter < 10) {
+        if (dataCounter < 3) {
             temperatureValue = lowerLimit + Math.random() * (upperLimit - lowerLimit);
         } else {
             // 무작위로 상한선 초과 또는 하한선 미달 데이터를 생성
