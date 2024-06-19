@@ -241,8 +241,8 @@
             chart.data.datasets[1].data.push({ x: time, y: upperLimit });
             chart.data.datasets[2].data.push({ x: time, y: lowerLimit });
 
-            // 초기 10초 동안은 알람 표시 안함
-            if (window[chartId + 'DataCounter'] > 10) {
+            // 초기 3초 동안은 알람 표시 안함
+            if (window[chartId + 'DataCounter'] > 3) {
                 // 특정 값에 도달했을 때 시각적 알람 표시
                 if (mockData.temperature.value > upperLimit && now - lastAlertTime > 5000) {
                     showAlert('Upper limit exceeded!', 'upper-limit', alertId);
